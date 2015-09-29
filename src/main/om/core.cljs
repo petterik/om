@@ -480,15 +480,33 @@
               state  (merge (dissoc istate ::id)
                        (when (satisfies? IInitState c)
                          (init-state c)))]
+          ;; Unsure what the side effects of not setting __om_init_state to
+          ;; nil would be, so I'm using a new property to temporary store
+          ;; the local state in. __om_no_local_init_state is unset when
+          ;; we can put the local state in the global state (once mounted).
+          ;; - petterik
+          (aset props "__om_no_local_init_state" state)
           (aset props "__om_init_state" nil)
           #js {:__om_id om-id})))
     :componentDidMount
     (fn []
       (this-as this
         (let [c      (children this)
-              cursor (aget (.-props this) "__om_cursor")
-              spath  [:state-map (react-id this) :render-state]]
-          (swap! (get-gstate this) assoc-in spath state)
+              props  (.-props this)
+              cursor (aget props "__om_cursor")
+              spath  [:state-map (react-id this) :pending-state]]
+          (when-let [init-state (aget props "__om_no_local_init_state")]
+            ;; using update-in and merge, since I'm not sure what :pending-state
+            ;; could be at this point in time. I would think it's always nil, but
+            ;; I'm not sure.. - petterik
+            (swap! (get-gstate this) update-in spath merge init-state)
+            (aset props "__om_no_local_init_state" nil))
+          ;; merging-pending-state in DidMount instead of WillMount because we
+          ;; can only get the react-id once we're mounted. So getting the state
+          ;; during WillMount may differ from DidMount? But it shouldn't, as
+          ;; a call to get-state should prefer :pending-state over :render-state
+          ;; - petterik
+          (no-local-merge-pending-state this)
           (when (satisfies? IDidMount c)
             (did-mount c)))))
     :componentWillMount
@@ -497,10 +515,7 @@
         (merge-props-state this)
         (let [c (children this)]
           (when (satisfies? IWillMount c)
-            (will-mount c)))
-        ;; TODO: cannot merge state until mounted?
-        (when (mounted? this)
-          (no-local-merge-pending-state this))))
+            (will-mount c)))))
     :componentWillUnmount
     (fn []
       (this-as this
@@ -567,7 +582,8 @@
             (or (:pending-state states)
                 (:render-state states)))
           ;; TODO: means state cannot be written to until mounted - David
-          (aget (.-props this) "__om_init_state")))
+          (or (aget (.-props this) "__om_init_state")
+              (aget (.-props this) "__om_no_local_init_state"))))
       ([this ks]
          (get-in (-get-state this) ks)))))
 
