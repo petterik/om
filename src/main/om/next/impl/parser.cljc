@@ -160,69 +160,78 @@
                {key query})
              key)))))))
 
+(defn- path-meta-joins
+  "returns a tripple with [key sel union-entry] for each join in a query."
+  [query union-expr]
+  (into [] (comp (filter #(or (util/join? %) (util/ident? %)))
+                 (map #(cond-> % (util/ident? %) (hash-map '[*])))
+                 (map (fn [join]
+                        (let [[key sel] (util/join-entry join)
+                              union-entry (if (util/union? join) sel union-expr)
+                              sel (if (util/recursion? sel)
+                                    (if-not (nil? union-expr)
+                                      union-entry
+                                      query)
+                                    sel)
+                              key (cond-> key (util/unique-ident? key) first)]
+                          [key sel union-entry]))))
+        query))
+
 (defn path-meta
   "Add path metadata to a data structure. data is the data to be worked on.
    path is the current path into the data. query is the query used to
    walk the data. union-expr tracks the last seen union query to be used
    when it finds a recursive union."
   ([data path query]
-   (path-meta data path query nil))
+   (path-meta data path query nil nil))
   ([data path query union-expr]
-   (let [{props false joins true} (group-by #(or (util/join? %)
-                                                 (util/ident? %))
-                                    query)]
-     (cond
-       (nil? query)
-       (cond-> data
-         #?(:clj  (instance? clojure.lang.IObj data)
-            :cljs (satisfies? IWithMeta data))
-         (vary-meta assoc :om-path path))
+    (path-meta data path query union-expr nil))
+  ([data path query union-expr joins]
+   (cond
+     (nil? query)
+     (cond-> data
+             #?(:clj  (instance? clojure.lang.IObj data)
+                :cljs (satisfies? IWithMeta data))
+             (vary-meta assoc :om-path path))
 
-       (sequential? data)
+     (sequential? data)
+     ;; The joins will be the same for each item in the sequential data. Create them once.
+     (let [joins (when (vector? query) (path-meta-joins query union-expr))]
        (-> (into []
-             (map-indexed
-               (fn [idx v]
-                 (path-meta v (conj path idx) query union-expr))) data)
-         (vary-meta assoc :om-path path))
+                (map-indexed
+                  (fn [idx v]
+                    (path-meta v (conj path idx) query union-expr joins)))
+                data)
+          (vary-meta assoc :om-path path)))
 
-       (vector? query)
-       (loop [joins (seq joins) ret data]
-         (if-not (nil? joins)
-           (let [join        (first joins)
-                 join        (cond-> join (util/ident? join) (hash-map '[*]))
-                 [key sel]   (util/join-entry join)
-                 union-entry (if (util/union? join) sel union-expr)
-                 sel         (if (util/recursion? sel)
-                               (if-not (nil? union-expr)
-                                 union-entry
-                                 query)
-                               sel)
-                 key         (cond-> key (util/unique-ident? key) first)
-                 v           (get ret key)]
-             (recur (next joins)
-               (cond-> ret
-                 (contains? ret key)
-                 (assoc key
-                   (path-meta v (conj path key) sel union-entry)))))
-           (cond-> ret
-             #?(:clj  (instance? clojure.lang.IObj ret)
-                :cljs (satisfies? IWithMeta ret))
-             (vary-meta assoc :om-path path))))
+     (vector? query)
+     (loop [joins (seq (or joins (path-meta-joins query union-expr))) ret data]
+       (if-not (nil? joins)
+         (let [[key sel union-entry] (first joins)]
+           (recur (next joins)
+                  (cond-> ret
+                          (contains? ret key)
+                          (assoc key
+                                 (path-meta (get ret key) (conj path key) sel union-entry nil)))))
+         (cond-> ret
+                 #?(:clj  (instance? clojure.lang.IObj ret)
+                    :cljs (satisfies? IWithMeta ret))
+                 (vary-meta assoc :om-path path))))
 
-       :else
-       ;; UNION
-       (if (map? data)
-         (let [dispatch-key (comp :dispatch-key expr->ast)
-               branches     (vals query)
-               props (map dispatch-key (keys data))
-               query (some (fn [q]
-                             (let [query-props (map dispatch-key q)]
-                               (when (= (set props)
-                                       (set query-props))
-                                 q)))
-                       branches)]
-           (path-meta data path query union-expr))
-         data)))))
+     :else
+     ;; UNION
+     (if (map? data)
+       (let [dispatch-key (comp :dispatch-key expr->ast)
+             branches (vals query)
+             props (map dispatch-key (keys data))
+             query (some (fn [q]
+                           (let [query-props (map dispatch-key q)]
+                             (when (= (set props)
+                                      (set query-props))
+                               q)))
+                         branches)]
+         (path-meta data path query union-expr))
+       data))))
 
 (defn rethrow? [x]
   (and (instance? #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) x)
