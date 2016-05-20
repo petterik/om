@@ -813,7 +813,10 @@
       (om/add-root! om-679-2-reconciler OM-679-2-Tree node))))
 
 ;; om-XXX:
-;; Nested set-query! causes call on nil in clojure.zip/node (from Indexer/reindex!)
+;; Bug: Nested set-query! causes call on nil in clojure.zip/node (from Indexer/reindex!)
+;; To reproduce: Create components (as few as posible) with queries that change when they get
+;;               props. When props have been received, set the query on these components
+;;               and the bug should get triggered.
 
 ;; ----------- Query helpers
 
@@ -825,6 +828,7 @@
   "Adds {:route/data <query>} to a query, given a path in the props."
   [this route-path query]
   (let [component (get-in (om/props this) route-path)]
+    (assert component)
     (conj query {:route/data (om/get-query component)})))
 
 ;; ----------- Read
