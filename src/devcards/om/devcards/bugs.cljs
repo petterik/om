@@ -812,6 +812,93 @@
     (fn [_ node]
       (om/add-root! om-679-2-reconciler OM-679-2-Tree node))))
 
+;; om-XXX:
+;; Nested set-query! causes call on nil in clojure.zip/node (from Indexer/reindex!)
+
+;; ----------- Query helpers
+
+(defn set-query-with-props-after-render [c]
+  {:pre [(om/component? c)]}
+  (om/set-query! c {:query (om/query c)}))
+
+(defn with-route-query
+  "Adds {:route/data <query>} to a query, given a path in the props."
+  [this route-path query]
+  (let [component (get-in (om/props this) route-path)]
+    (conj query {:route/data (om/get-query component)})))
+
+;; ----------- Read
+
+(defn om-XXX-read [{:keys [state parser query] :as env} k _]
+  (condp = (namespace k)
+    "get" {:value (-> (get @state (keyword (name k)))
+                      (select-keys query))}
+    ;; parse the route's query
+    "route" {:value (parser env query)}))
+
+;; ----------- Components
+
+(defui om-XXX-grandchild
+  static om/IQuery
+  (query [_]
+    [{:get/grandchild [:name]}])
+  Object
+  (render [this]
+    (let [{{:keys [name]} :get/grandchild} (om/props this)]
+      (dom/ul nil
+        (dom/li nil
+          (dom/p nil (str "Name: " name)))))))
+
+(defui om-XXX-child
+  static om/IQuery
+  (query [this]
+    (cond->> [{:get/child [:name :route]}]
+            (om/component? this)
+            (with-route-query this [:get/child :route])))
+  Object
+  (componentDidMount [this]
+    ;; Uncomment this to trigger the bug for each add-root!:
+    ;;(set-query-with-props-after-render this)
+    )
+  (render [this]
+    (let [{{:keys [name route]} :get/child :as props} (om/props this)]
+      (dom/ul nil
+        (dom/li nil (dom/p nil (str "Name: " name)))
+        (dom/li nil
+          (dom/a #js {:onClick #(set-query-with-props-after-render this)}
+                 "Click here to trigger clojure.zip/node nil error")
+          (when-let [route-data (:route/data props)]
+            ((om/factory route) route-data)))))))
+
+(defui om-XXX-root
+  static om/IQuery
+  (query [this]
+    (cond->> [{:get/root [:name :route]}]
+             (om/component? this)
+             (with-route-query this [:get/root :route])))
+  Object
+  (componentDidMount [this]
+    ;; Triggering a set-query now that we've got props to get the full
+    ;; query with our children.
+    (set-query-with-props-after-render this))
+  (render [this]
+    (let [{{:keys [name route]} :get/root :as props} (om/props this)]
+      (dom/ul nil
+        (dom/li nil
+          (dom/p nil (str "Name: " name))
+          (when-let [route-data (:route/data props)]
+            ((om/factory route) route-data)))))))
+
+(def om-XXX-reconciler
+  (om/reconciler {:parser (om/parser {:read om-XXX-read})
+                  :state  (atom {:root       {:name "Root" :route om-XXX-child}
+                                 :child      {:name "Child" :route om-XXX-grandchild}
+                                 :grandchild {:name "Grandchild"}})}))
+
+(defcard om-XXX-card
+  (dom-node
+    (fn [_ node]
+      (om/add-root! om-XXX-reconciler om-XXX-root node))))
 
 (comment
 
