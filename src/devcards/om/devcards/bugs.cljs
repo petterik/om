@@ -924,6 +924,73 @@
     (fn [_ node]
       (om/add-root! OM-738-reconciler OM-738-Root node))))
 
+;; ==================
+;; OM-766
+
+(defui om-766-Stateful-Component
+  Object
+  (initLocalState [_]
+    {:x 0})
+  (render [this]
+    (dom/div nil
+      (dom/span nil "Clicking this button throws exception:")
+      (dom/button #js {:onClick #(do
+                                  (om/update-state! this update :x inc)
+                                  ((:parent-fn (om/get-computed this))))}
+                  "Inc x and foo")
+      (dom/p nil (str "Stateful component. X: " (:x (om/get-state this)))))))
+
+(def om-766-stateful-component (om/factory om-766-Stateful-Component))
+
+;; Need to have this component separating the stateful component and the root component.
+(defui om-766-Foo
+  static om/IQuery
+  (query [this]
+    [:foo/val])
+  Object
+  (render [this]
+    (println "Render Foo")
+    (dom/div nil
+      (dom/p nil (str "Foo: " (:foo/val (om/props this))))
+      (om-766-stateful-component (om/computed {}
+                                              {:parent-fn #(om/transact! this '[(increment/foo!)])})))))
+
+(def om-766-foo (om/factory om-766-Foo))
+
+(defui om-766-App
+  static om/IQuery
+  (query [this]
+    [{:foo (om/get-query om-766-Foo)}])
+  Object
+  (render [this]
+    (let [{:keys [foo]} (om/props this)]
+      (dom/div nil
+        (dom/button #js {:onClick #(om/transact! this '[(increment/foo!)])}
+                    "Inc foo")
+        (om-766-foo foo)))))
+
+(defn om-766-read
+  [{:keys [state] :as env} k _]
+  (let [st @state]
+    {:value (get st k)}))
+
+(defn om-766-mutate
+  [{:keys [state] :as env} _ _]
+  {:action #(swap! state update-in [:foo :foo/val] inc)})
+
+(def om-766-state
+  {:foo {:foo/val 0}})
+
+(def om-766-reconciler
+  (om/reconciler {:state  om-766-state
+                  :parser (om/parser {:read om-766-read :mutate om-766-mutate})}))
+
+(defcard om-766-card
+  "Test that stateful components can be incrementally updated."
+  (dom-node
+    (fn [_ node]
+      (om/add-root! om-766-reconciler om-766-App node))))
+
 (comment
 
   (require '[cljs.pprint :as pprint])
