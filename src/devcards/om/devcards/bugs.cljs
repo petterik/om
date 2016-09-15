@@ -995,6 +995,77 @@
     (fn [_ node]
       (om/add-root! om-766-reconciler om-766-App node))))
 
+;; ==================
+;; OM-768
+
+(defui om-768-Bar
+  Object
+  (initLocalState [_]
+    {:x 0})
+  (render [this]
+    (dom/div nil
+      (dom/p nil (str "I am child of Foo with local state x: " (:x (om/get-state this))))
+      (dom/button #js {:onClick #(om/update-state! this update :x inc)}
+                  "2. Click me second (incrementing local state :x)")
+      (dom/p nil (str "Clicking the button above second throws an exception.")))))
+
+(def om-768-bar (om/factory om-768-Bar))
+
+;; Need to have this component separating the stateful component and the root component.
+(defui om-768-Foo
+  static om/IQuery
+  (query [this]
+    [:foo/val])
+  Object
+  (render [this]
+    (println "Render Foo")
+    (dom/div nil
+      (dom/p nil (str "Foo: " (:foo/val (om/props this))))
+      (om-768-bar {}))))
+
+(def om-768-foo (om/factory om-768-Foo))
+
+(defui om-768-App
+  static om/IQuery
+  (query [this]
+    [{:foo (om/get-query om-768-Foo)}
+     {:bar [:bar/val]}])
+  Object
+  (render [this]
+    (let [{:keys [foo]} (om/props this)]
+      (dom/div nil
+        (dom/button #js {:onClick #(om/transact! this '[(increment/bar!)])}
+                    "1. Click me first (incrementing [:bar :bar/val])")
+        (dom/p nil (str "Root component showing app-state [:bar :bar/val]: " (-> (om/props this) :bar :bar/val)))
+        (om-768-foo foo)))))
+
+(defn om-768-read
+  [{:keys [state] :as env} k _]
+  (let [st @state]
+    {:value (get st k)}))
+
+(defn om-768-mutate
+  [{:keys [state] :as env} k _]
+  {:action #(swap! state update-in (condp = k
+                                     'increment/foo! [:foo :foo/val]
+                                     'increment/bar! [:bar :bar/val])
+                   inc)})
+
+(def om-768-state
+  {:foo {:foo/val 0}
+   :bar {:bar/val 0}})
+
+(def om-768-reconciler
+  (om/reconciler {:state  om-768-state
+                  :parser (om/parser {:read om-768-read :mutate om-768-mutate})}))
+
+(defcard om-768-card
+  "Test that stateful components can be incrementally updated."
+  (dom-node
+    (fn [_ node]
+      (om/add-root! om-768-reconciler om-768-App node))))
+
+
 (comment
 
   (require '[cljs.pprint :as pprint])
