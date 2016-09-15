@@ -931,12 +931,17 @@
   Object
   (initLocalState [_]
     {:x 0})
+  (componentWillReceiveProps [this next-props]
+    (when (nil? next-props)
+      (println "Got nil props. Should never get nil props."))
+    (when (even? (:x (om/get-state this)))
+      (om/update-state! this update :x inc)))
   (render [this]
     (dom/div nil
       (dom/span nil "Clicking this button throws exception:")
       (dom/button #js {:onClick #(do
                                   (om/update-state! this update :x inc)
-                                  ((:parent-fn (om/get-computed this))))}
+                                  (om/transact! this '[(increment/foo!)]))}
                   "Inc x and foo")
       (dom/p nil (str "Stateful component. X: " (:x (om/get-state this)))))))
 
@@ -952,8 +957,7 @@
     (println "Render Foo")
     (dom/div nil
       (dom/p nil (str "Foo: " (:foo/val (om/props this))))
-      (om-766-stateful-component (om/computed {}
-                                              {:parent-fn #(om/transact! this '[(increment/foo!)])})))))
+      (om-766-stateful-component {}))))
 
 (def om-766-foo (om/factory om-766-Foo))
 
