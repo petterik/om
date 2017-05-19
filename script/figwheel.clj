@@ -2,7 +2,7 @@
          '[figwheel-sidecar.repl-api :as ra])
 
 (ra/start-figwheel!
-  {:figwheel-options {}
+  {:figwheel-options {:validate-config :ignore-unknown-keys}
    :build-ids ["devcards"]
    :all-builds
    [{:id "devcards"
@@ -14,6 +14,9 @@
                 :output-dir "resources/public/devcards/out"
                 :parallel-build true
                 :compiler-stats true
+                :language-in :ecmascript6
+                ;; :npm-deps
+                :closure-warnings {:non-standard-jsdoc :off}
                 :verbose true}}]})
 
 (ra/cljs-repl)

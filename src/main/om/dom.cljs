@@ -1,16 +1,17 @@
 (ns om.dom
   (:refer-clojure :exclude [map mask meta time select])
   (:require-macros [om.dom :as dom])
-  (:require [cljsjs.react]
-            [cljsjs.react.dom]
+  (:require react
+            react-dom
+            process.env
             [om.util :as util]
             [goog.object :as gobj]))
 
 (dom/gen-react-dom-fns)
 
 (defn wrap-form-element [ctor display-name]
-  (js/React.createFactory
-    (js/React.createClass
+  (react/createFactory
+    (react/createClass
       #js
       {:getDisplayName
        (fn [] display-name)
@@ -40,30 +41,32 @@
                     :children (aget (.-props this) "children")})
              (ctor props))))})))
 
-(def input (wrap-form-element js/React.DOM.input "input"))
+(def input (wrap-form-element react/DOM.input "input"))
 
-(def textarea (wrap-form-element js/React.DOM.textarea "textarea"))
+(def textarea (wrap-form-element react/DOM.textarea "textarea"))
 
-(def option (wrap-form-element js/React.DOM.option "option"))
+(def option (wrap-form-element react/DOM.option "option"))
 
-(def select (wrap-form-element js/React.DOM.select "select"))
+(def select (wrap-form-element react/DOM.select "select"))
 
 (defn render
   "Equivalent to React.render"
   [component el]
-  (js/ReactDOM.render component el))
+  (react-dom/render component el))
 
 (defn render-to-str
   "Equivalent to React.renderToString"
   [c]
-  (js/ReactDOMServer.renderToString c))
+  ;; TODO: Figure out how to call server.renderToString
+  ;; (react-dom/Server.renderToString c)
+  )
 
 (defn node
   "Returns the dom node associated with a component's React ref."
   ([component]
-   (js/ReactDOM.findDOMNode component))
+   (react-dom/findDOMNode component))
   ([component name]
-   (some-> (.-refs component) (gobj/get name) (js/ReactDOM.findDOMNode))))
+   (some-> (.-refs component) (gobj/get name) (react-dom/findDOMNode))))
 
 (defn create-element
   "Create a DOM element for which there exists no corresponding function.
@@ -72,4 +75,4 @@
   ([tag]
    (create-element tag nil))
   ([tag opts & children]
-   (js/React.createElement tag opts children)))
+   (react/createElement tag opts children)))
