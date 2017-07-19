@@ -18,6 +18,7 @@
                  [cljsjs/react "15.3.1-0"]
                  [cljsjs/react-dom "15.3.1-0"]
                  [com.cognitect/transit-clj "0.8.290"]
+                 [cljsjs/create-react-class "15.6.0-0"]
                  [com.cognitect/transit-cljs "0.8.239"]
 
                  [org.clojure/core.async "0.2.385" :scope "test"
