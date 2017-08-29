@@ -4,14 +4,18 @@
   (:require [react :as react]
             [react-dom :as react-dom]
             ["react-dom/server" :as react-dom-server]
+            [create-react-class :as create-react-class]
             [om.util :as util]
             [goog.object :as gobj]))
 
+(declare create-element react-create-element)
 (dom/gen-react-dom-fns)
+
+(def create-class create-react-class)
 
 (defn wrap-form-element [ctor display-name]
   (react/createFactory
-    (react/createClass
+    (create-class
       #js
       {:getDisplayName
        (fn [] display-name)
@@ -66,6 +70,11 @@
   ([component name]
    (some-> (.-refs component) (gobj/get name) (react-dom/findDOMNode))))
 
+(def react-create-element react/createElement)
+
+(defn- create-element-variadic [& args]
+  (.apply react-create-element nil (into-array args)))
+
 (defn create-element
   "Create a DOM element for which there exists no corresponding function.
    Useful to create DOM elements not included in React.DOM. Equivalent
@@ -73,6 +82,10 @@
   ([tag]
    (create-element tag nil))
   ([tag opts]
-   (react/createElement tag opts))
-  ([tag opts & children]
-   (react/createElement tag opts children)))
+   (react-create-element tag opts))
+  ([tag opts child]
+   (react-create-element tag opts child))
+  ([tag opts child & children]
+   (apply create-element-variadic tag opts child children)))
+
+

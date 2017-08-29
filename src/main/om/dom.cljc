@@ -138,7 +138,7 @@
 
 (defn ^:private gen-react-dom-inline-fn [tag]
   `(defmacro ~tag [opts# & children#]
-     `(~'~(symbol "js" (str "React.DOM." (name tag))) ~opts#
+     `(om.dom/react-create-element ~(name tag) ~opts#
         ~@(clojure.core/map (fn [x#] `(om.util/force-children ~x#)) children#))))
 
 (defmacro ^:private gen-react-dom-inline-fns []
@@ -150,9 +150,10 @@
 
 (defn ^:private gen-react-dom-fn [tag]
   `(defn ~tag [opts# & children#]
-     (.apply ~(symbol "js" (str "React.DOM." (name tag))) nil
-       (cljs.core/into-array
-         (cons opts# (cljs.core/map om.util/force-children children#))))))
+     (apply om.dom/create-element
+            ~(name tag)
+            opts#
+            (cljs.core/into-array (cljs.core/map om.util/force-children children#)))))
 
 (defmacro ^:private gen-react-dom-fns []
   `(do

@@ -18,6 +18,7 @@
                  [cljsjs/react "15.6.1-1"]
                  [cljsjs/react-dom "15.6.1-1"]
                  [cljsjs/react-dom-server "15.6.1-1"]
+                 [cljsjs/create-react-class "15.6.0-2"]
                  [com.cognitect/transit-clj "0.8.300"]
                  [com.cognitect/transit-cljs "0.8.239"]
 
@@ -26,7 +27,7 @@
                  [figwheel-sidecar "0.5.10" :scope "test"
                   :exclusions [org.clojure/clojurescript
                                org.clojure/tools.reader]]
-                 [devcards "0.3.0-SNAPSHOT" :scope "test"
+                 [devcards "0.2.3" :scope "test"
                   :exclusions [org.clojure/clojurescript]]]
 
   :plugins [[lein-cljsbuild "1.1.6"]]
