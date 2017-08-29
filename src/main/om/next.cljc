@@ -190,8 +190,7 @@
    `{~'isMounted
      ([this#]
        (boolean
-         (goog.object/getValueByKeys this#
-           "_reactInternalInstance" "_renderedComponent")))
+         (some-> this# .-_reactInternalInstance .-_renderedComponent)))
      ~'shouldComponentUpdate
      ([this# next-props# next-state#]
       (let [next-children# (. next-props# -children)

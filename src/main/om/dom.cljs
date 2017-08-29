@@ -13,45 +13,45 @@
 
 (def create-class create-react-class)
 
-(defn wrap-form-element [ctor display-name]
+(defn wrap-form-element [form-name]
   (react/createFactory
     (create-class
       #js
       {:getDisplayName
-       (fn [] display-name)
+       (fn [] form-name)
        :getInitialState
        (fn []
          (this-as this
-           #js {:value (aget (.-props this) "value")}))
+           #js {:value (gobj/get (.-props this) "value")}))
        :onChange
        (fn [e]
          (this-as this
-           (let [handler (aget (.-props this) "onChange")]
+           (let [handler (gobj/get (.-props this) "onChange")]
              (when-not (nil? handler)
                (handler e)
                (.setState this #js {:value (.. e -target -value)})))))
        :componentWillReceiveProps
        (fn [new-props]
          (this-as this
-           (.setState this #js {:value (aget new-props "value")})))
+           (.setState this #js {:value (gobj/get new-props "value")})))
        :render
        (fn []
          (this-as this
            ;; NOTE: if switch to macro we remove a closure allocation
            (let [props #js {}]
              (gobj/extend props (.-props this)
-               #js {:value (aget (.-state this) "value")
-                    :onChange (aget this "onChange")
-                    :children (aget (.-props this) "children")})
-             (ctor props))))})))
+               #js {:value (gobj/get (.-state this) "value")
+                    :onChange (gobj/get this "onChange")
+                    :children (gobj/get (.-props this) "children")})
+             (react-create-element form-name props))))})))
 
-(def input (wrap-form-element react/DOM.input "input"))
+(def input (wrap-form-element "input"))
 
-(def textarea (wrap-form-element react/DOM.textarea "textarea"))
+(def textarea (wrap-form-element "textarea"))
 
-(def option (wrap-form-element react/DOM.option "option"))
+(def option (wrap-form-element "option"))
 
-(def select (wrap-form-element react/DOM.select "select"))
+(def select (wrap-form-element "select"))
 
 (defn render
   "Equivalent to React.render"
